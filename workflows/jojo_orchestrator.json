@@ -1,0 +1,601 @@
+{
+  "name": "🛡️ JOJO Gemini Orchestrator v2.0 — FIXED",
+  "nodes": [
+
+    /* ═══════════════════════════════════════════════
+       TRIGGERS — 4 مصادر تشغيل
+    ═══════════════════════════════════════════════ */
+
+    {
+      "id": "trigger-manual",
+      "name": "▶️ Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [100, 200]
+    },
+
+    {
+      "id": "trigger-telegram",
+      "name": "📱 Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [100, 360],
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": { "id": "={{ $env.TELEGRAM_CREDENTIAL_ID }}", "name": "Telegram Bot" }
+      }
+    },
+
+    {
+      "id": "trigger-webhook",
+      "name": "🌐 Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 520],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "jojo-command",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "jojo-command"
+    },
+
+    {
+      "id": "trigger-schedule",
+      "name": "⏰ Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [100, 680],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "triggerAtHour": 7 }]
+        }
+      }
+    },
+
+    /* ═══════════════════════════════════════════════
+       EXTRACTORS — توحيد صيغة البيانات
+       كل مصدر يُحوَّل إلى: { message, source, userId }
+    ═══════════════════════════════════════════════ */
+
+    {
+      "id": "extract-manual",
+      "name": "📎 Normalize Manual",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [320, 200],
+      "parameters": {
+        "mode": "manual",
+        "fields": {
+          "values": [
+            { "name": "message",    "type": "string", "value": "تلخيص أخبار الذكاء الاصطناعي اليوم" },
+            { "name": "source",     "type": "string", "value": "manual" },
+            { "name": "userId",     "type": "string", "value": "bouhamed" },
+            { "name": "outputMode", "type": "string", "value": "telegram_and_email" }
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "extract-telegram",
+      "name": "📎 Normalize Telegram",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [320, 360],
+      "parameters": {
+        "mode": "manual",
+        "fields": {
+          "values": [
+            { "name": "message",    "type": "string", "value": "={{ $json.message.text }}" },
+            { "name": "source",     "type": "string", "value": "telegram" },
+            { "name": "userId",     "type": "string", "value": "={{ $json.message.from.id }}" },
+            { "name": "chatId",     "type": "string", "value": "={{ $json.message.chat.id }}" },
+            { "name": "outputMode", "type": "string", "value": "telegram" }
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "extract-webhook",
+      "name": "📎 Normalize Webhook",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [320, 520],
+      "parameters": {
+        "mode": "manual",
+        "fields": {
+          "values": [
+            { "name": "message",    "type": "string", "value": "={{ $json.body.message || $json.body.command }}" },
+            { "name": "source",     "type": "string", "value": "webhook" },
+            { "name": "userId",     "type": "string", "value": "={{ $json.body.userId || 'api' }}" },
+            { "name": "outputMode", "type": "string", "value": "={{ $json.body.outputMode || 'email' }}" }
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "extract-schedule",
+      "name": "📎 Normalize Schedule",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [320, 680],
+      "parameters": {
+        "mode": "manual",
+        "fields": {
+          "values": [
+            { "name": "message",    "type": "string", "value": "تقرير صباحي: لخص أبرز أخبار التقنية والذكاء الاصطناعي اليوم وأرسله بريداً" },
+            { "name": "source",     "type": "string", "value": "schedule" },
+            { "name": "userId",     "type": "string", "value": "system" },
+            { "name": "outputMode", "type": "string", "value": "telegram_and_email" }
+          ]
+        }
+      }
+    },
+
+    /* ═══════════════════════════════════════════════
+       ROUTER — كل trigger يُعالَج منفصلاً
+       (لا merge هنا — n8n يشغّل كل trigger في execution منفصل)
+       نستخدم Switch لتحديد مسار الإخراج لاحقاً
+    ═══════════════════════════════════════════════ */
+
+    {
+      "id": "router-output",
+      "name": "🔀 Router: Output Mode",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [1480, 440],
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $json.outputMode }}",
+        "rules": {
+          "values": [
+            { "outputKey": "telegram",          "value": "telegram" },
+            { "outputKey": "email",             "value": "email" },
+            { "outputKey": "telegram_and_email","value": "telegram_and_email" },
+            { "outputKey": "gotify",            "value": "gotify" }
+          ]
+        },
+        "fallbackOutput": "telegram_and_email"
+      }
+    },
+
+    /* ═══════════════════════════════════════════════
+       GEMINI LLM MODEL
+       يجب ربطه بـ ai_languageModel → للوكيل
+    ═══════════════════════════════════════════════ */
+
+    {
+      "id": "gemini-model",
+      "name": "🔷 Gemini 1.5 Pro",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [680, 220],
+      "parameters": {
+        "modelName": "gemini-1.5-pro",
+        "options": {
+          "temperature": 0.4,
+          "maxOutputTokens": 8192,
+          "topP": 0.9
+        }
+      },
+      "credentials": {
+        "googlePalmApi": { "id": "={{ $env.GEMINI_CREDENTIAL_ID }}", "name": "Google Gemini" }
+      }
+    },
+
+    /* ═══════════════════════════════════════════════
+       MEMORY — ذاكرة المحادثة
+    ═══════════════════════════════════════════════ */
+
+    {
+      "id": "memory-window",
+      "name": "🧠 Window Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [680, 320],
+      "parameters": {
+        "contextWindowLength": 10
+      }
+    },
+
+    /* ═══════════════════════════════════════════════
+       GEMINI ORCHESTRATOR AGENT
+       الوكيل الرئيسي — يختار الأداة المناسبة
+    ═══════════════════════════════════════════════ */
+
+    {
+      "id": "agent-orchestrator",
+      "name": "🧠 Gemini Orchestrator",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [900, 440],
+      "continueOnFail": true,
+      "parameters": {
+        "promptType": "define",
+        "text": "=== JOJO SOVEREIGN COMMAND ===\nالمصدر: {{ $json.source }}\nالمستخدم: {{ $json.userId }}\nالرسالة: {{ $json.message }}\nوضع الإخراج: {{ $json.outputMode }}\n\nأنت جوجو — المنسق السيادي. حلل الرسالة واستخدم الأداة المناسبة:\n\n• ابحث عن أخبار → استخدم tool_news_search\n• بحث موضوع عام → استخدم tool_web_search  \n• سؤال تقني معقد → استخدم tool_claude أو tool_gpt4\n• تحليل/بيانات → استخدم tool_grok\n• تلخيص سريع → استخدم tool_deepseek\n\nبعد الحصول على النتيجة، أعد JSON بهذا الشكل:\n{\n  \"response\": \"<الرد النهائي للمستخدم>\",\n  \"tool_used\": \"<الأداة المستخدمة>\",\n  \"confidence\": \"<عالية|متوسطة|منخفضة>\",\n  \"outputMode\": \"{{ $json.outputMode }}\",\n  \"userId\": \"{{ $json.userId }}\",\n  \"chatId\": \"{{ $json.chatId || '' }}\",\n  \"subject\": \"<عنوان إذا كان إيميل>\"\n}",
+        "options": {
+          "systemMessage": "أنت جوجو — المنسق السيادي لـ JOJO Sovereign. تتكلم العربية بطلاقة. تختار الأداة المثلى لكل مهمة. تعيد JSON دائماً. لا تخترع معلومات.",
+          "maxIterations": 5,
+          "returnIntermediateSteps": false
+        }
+      }
+    },
+
+    /* ═══════════════════════════════════════════════
+       TOOLS — أدوات الوكيل (ai_tool connections)
+
+       كل أداة هي: @n8n/n8n-nodes-langchain.toolHttpRequest
+       أو @n8n/n8n-nodes-langchain.toolCode
+       مربوطة بـ ai_tool → للوكيل
+    ═══════════════════════════════════════════════ */
+
+    {
+      "id": "tool-news",
+      "name": "tool_news_search",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [680, 600],
+      "parameters": {
+        "name": "tool_news_search",
+        "description": "يبحث عن أخبار حديثة ويعيد ملخصاً. أعطه الموضوع المطلوب.",
+        "method": "GET",
+        "url": "https://newsapi.org/v2/everything",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "queryAuth",
+        "queryParameters": {
+          "parameters": [
+            { "name": "q",        "value": "{query}" },
+            { "name": "language", "value": "ar" },
+            { "name": "sortBy",   "value": "publishedAt" },
+            { "name": "pageSize", "value": "5" },
+            { "name": "apiKey",   "value": "={{ $env.NEWSAPI_KEY }}" }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            { "name": "query", "description": "موضوع البحث في الأخبار", "type": "string" }
+          ]
+        },
+        "options": { "timeout": 8000 }
+      }
+    },
+
+    {
+      "id": "tool-search",
+      "name": "tool_web_search",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [780, 600],
+      "parameters": {
+        "name": "tool_web_search",
+        "description": "يبحث في الإنترنت عن معلومات حول أي موضوع. أعطه استعلام البحث.",
+        "method": "GET",
+        "url": "https://serpapi.com/search",
+        "queryParameters": {
+          "parameters": [
+            { "name": "q",      "value": "{query}" },
+            { "name": "hl",     "value": "ar" },
+            { "name": "gl",     "value": "qa" },
+            { "name": "api_key","value": "={{ $env.SERPAPI_KEY }}" }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            { "name": "query", "description": "استعلام البحث بالعربية أو الإنجليزية", "type": "string" }
+          ]
+        },
+        "options": { "timeout": 10000 }
+      }
+    },
+
+
+
+    {
+      "id": "tool-grok",
+      "name": "tool_grok",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [980, 600],
+      "continueOnFail": true,
+      "parameters": {
+        "name": "tool_grok",
+        "description": "يستخدم Grok (xAI) للتحليل والإجابة. أفضل للأسئلة الإخبارية والمعلوماتية.",
+        "method": "POST",
+        "url": "https://api.x.ai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"model\": \"grok-beta\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"{prompt}\"}],\n  \"max_tokens\": 2000\n}",
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $env.GROK_API_KEY }}" }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            { "name": "prompt", "description": "السؤال أو المهمة لـ Grok", "type": "string" }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      }
+    },
+
+    {
+      "id": "tool-gpt4",
+      "name": "tool_gpt4",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1080, 600],
+      "continueOnFail": true,
+      "parameters": {
+        "name": "tool_gpt4",
+        "description": "يستخدم GPT-4 لمهام التفكير المعقدة والكتابة الإبداعية والتحليل.",
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"model\": \"gpt-4o\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"{prompt}\"}],\n  \"max_tokens\": 2000,\n  \"temperature\": 0.5\n}",
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $env.OPENAI_API_KEY }}" }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            { "name": "prompt", "description": "المهمة لـ GPT-4", "type": "string" }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      }
+    },
+
+    {
+      "id": "tool-claude",
+      "name": "tool_claude",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1180, 600],
+      "continueOnFail": true,
+      "parameters": {
+        "name": "tool_claude",
+        "description": "يستخدم Claude (Anthropic) للتحليل العميق والكتابة الدقيقة.",
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"model\": \"claude-3-5-sonnet-20241022\",\n  \"max_tokens\": 2000,\n  \"messages\": [{\"role\": \"user\", \"content\": \"{prompt}\"}]\n}",
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key",         "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version",  "value": "2023-06-01" },
+            { "name": "Content-Type",       "value": "application/json" }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            { "name": "prompt", "description": "المهمة لـ Claude", "type": "string" }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      }
+    },
+
+    {
+      "id": "tool-deepseek",
+      "name": "tool_deepseek",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1280, 600],
+      "continueOnFail": true,
+      "parameters": {
+        "name": "tool_deepseek",
+        "description": "يستخدم DeepSeek للمهام السريعة والاقتصادية والتلخيص.",
+        "method": "POST",
+        "url": "https://api.deepseek.com/chat/completions",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"model\": \"deepseek-chat\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"{prompt}\"}],\n  \"max_tokens\": 1500\n}",
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $env.DEEPSEEK_API_KEY }}" }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            { "name": "prompt", "description": "المهمة لـ DeepSeek", "type": "string" }
+          ]
+        },
+        "options": { "timeout": 20000 }
+      }
+    },
+
+    /* ═══════════════════════════════════════════════
+       CODE: تحليل مخرجات الوكيل
+    ═══════════════════════════════════════════════ */
+
+    {
+      "id": "parse-agent-output",
+      "name": "🔧 Parse Agent Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 440],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst outputText = raw.output || raw.text || JSON.stringify(raw);\n\nlet parsed;\ntry {\n  const m = outputText.match(/\\{[\\s\\S]*\\}/);\n  parsed = m ? JSON.parse(m[0]) : null;\n} catch(e) { parsed = null; }\n\nif (!parsed) {\n  parsed = {\n    response: outputText.trim().slice(0, 2000),\n    tool_used: 'direct',\n    confidence: 'متوسطة',\n    outputMode: $input.first().json.outputMode || 'telegram',\n    userId: $input.first().json.userId || '',\n    chatId: $input.first().json.chatId || '',\n    subject: 'رد جوجو السيادي'\n  };\n}\n\nreturn [{ json: {\n  ...parsed,\n  processedAt: new Date().toISOString()\n}}];"
+      }
+    },
+
+    /* ═══════════════════════════════════════════════
+       OUTPUT NODES
+    ═══════════════════════════════════════════════ */
+
+    {
+      "id": "send-telegram-reply",
+      "name": "📤 Send Telegram Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1700, 320],
+      "continueOnFail": true,
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId || $env.TELEGRAM_DEFAULT_CHAT_ID }}",
+        "text": "={{ '🛡️ *جوجو السيادية*\\n\\n' + $json.response + '\\n\\n_أداة: ' + ($json.tool_used||'—') + ' | ثقة: ' + ($json.confidence||'—') + '_' }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": { "id": "={{ $env.TELEGRAM_CREDENTIAL_ID }}", "name": "Telegram Bot" }
+      }
+    },
+
+    {
+      "id": "send-gotify",
+      "name": "📢 Send Gotify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1700, 460],
+      "continueOnFail": true,
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GOTIFY_URL }}/message",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"title\": \"🛡️ جوجو السيادية\",\n  \"message\": {{ JSON.stringify($json.response) }},\n  \"priority\": 5\n}",
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Gotify-Key", "value": "={{ $env.GOTIFY_APP_TOKEN }}" }
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "send-email",
+      "name": "📧 Send Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1700, 600],
+      "continueOnFail": true,
+      "parameters": {
+        "to":        "={{ $env.DEFAULT_EMAIL }}",
+        "subject":   "={{ $json.subject || '📊 تقرير جوجو السيادية — ' + new Date().toLocaleDateString('ar-QA') }}",
+        "emailType": "html",
+        "message":   "=<div dir=\"rtl\" style=\"font-family:sans-serif;padding:24px;background:#0b1a0e;color:#ddecd5;\"><h2 style=\"color:#c9a227;\">🛡️ تقرير جوجو السيادية</h2><hr style=\"border-color:#1f4d26;\"><div style=\"line-height:2;\">{{ $json.response }}</div><hr style=\"border-color:#1f4d26;\"><small style=\"color:#4a8a5a;\">الأداة: {{ $json.tool_used }} | الثقة: {{ $json.confidence }} | {{ $json.processedAt }}</small></div>",
+        "options": {}
+      },
+      "credentials": {
+        "gmailOAuth2": { "id": "={{ $env.GMAIL_CREDENTIAL_ID }}", "name": "Gmail OAuth" }
+      }
+    },
+
+    /* ═══════════════════════════════════════════════
+       FINAL LOG
+    ═══════════════════════════════════════════════ */
+
+    {
+      "id": "final-log",
+      "name": "✅ Execution Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 440],
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nreturn [{ json: {\n  status: 'completed',\n  tool_used: d.tool_used,\n  confidence: d.confidence,\n  output_length: (d.response||'').length,\n  processed_at: d.processedAt,\n  workflow: 'JOJO Gemini Orchestrator v2.0'\n}}];"
+      }
+    }
+
+  ],
+
+  "connections": {
+
+    "▶️ Manual Trigger":   { "main": [[{ "node": "📎 Normalize Manual",   "type": "main", "index": 0 }]] },
+    "📱 Telegram Trigger": { "main": [[{ "node": "📎 Normalize Telegram", "type": "main", "index": 0 }]] },
+    "🌐 Webhook Trigger":  { "main": [[{ "node": "📎 Normalize Webhook",  "type": "main", "index": 0 }]] },
+    "⏰ Schedule Trigger": { "main": [[{ "node": "📎 Normalize Schedule", "type": "main", "index": 0 }]] },
+
+    "📎 Normalize Manual":   { "main": [[{ "node": "🧠 Gemini Orchestrator", "type": "main", "index": 0 }]] },
+    "📎 Normalize Telegram": { "main": [[{ "node": "🧠 Gemini Orchestrator", "type": "main", "index": 0 }]] },
+    "📎 Normalize Webhook":  { "main": [[{ "node": "🧠 Gemini Orchestrator", "type": "main", "index": 0 }]] },
+    "📎 Normalize Schedule": { "main": [[{ "node": "🧠 Gemini Orchestrator", "type": "main", "index": 0 }]] },
+
+    "🔷 Gemini 1.5 Pro": {
+      "ai_languageModel": [[{ "node": "🧠 Gemini Orchestrator", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "🧠 Window Memory": {
+      "ai_memory": [[{ "node": "🧠 Gemini Orchestrator", "type": "ai_memory", "index": 0 }]]
+    },
+
+    "tool_news_search": { "ai_tool": [[{ "node": "🧠 Gemini Orchestrator", "type": "ai_tool", "index": 0 }]] },
+    "tool_web_search":  { "ai_tool": [[{ "node": "🧠 Gemini Orchestrator", "type": "ai_tool", "index": 0 }]] },
+
+    "tool_grok":        { "ai_tool": [[{ "node": "🧠 Gemini Orchestrator", "type": "ai_tool", "index": 0 }]] },
+    "tool_gpt4":        { "ai_tool": [[{ "node": "🧠 Gemini Orchestrator", "type": "ai_tool", "index": 0 }]] },
+    "tool_claude":      { "ai_tool": [[{ "node": "🧠 Gemini Orchestrator", "type": "ai_tool", "index": 0 }]] },
+    "tool_deepseek":    { "ai_tool": [[{ "node": "🧠 Gemini Orchestrator", "type": "ai_tool", "index": 0 }]] },
+
+    "🧠 Gemini Orchestrator": { "main": [[{ "node": "🔧 Parse Agent Output", "type": "main", "index": 0 }]] },
+
+    "🔧 Parse Agent Output": { "main": [[{ "node": "🔀 Router: Output Mode", "type": "main", "index": 0 }]] },
+
+    "🔀 Router: Output Mode": {
+      "main": [
+        [{ "node": "📤 Send Telegram Reply", "type": "main", "index": 0 }],
+        [{ "node": "📧 Send Gmail",          "type": "main", "index": 0 }],
+        [{ "node": "📤 Send Telegram Reply", "type": "main", "index": 0 },
+         { "node": "📧 Send Gmail",          "type": "main", "index": 0 }],
+        [{ "node": "📢 Send Gotify",         "type": "main", "index": 0 }]
+      ]
+    },
+
+    "📤 Send Telegram Reply": { "main": [[{ "node": "✅ Execution Log", "type": "main", "index": 0 }]] },
+    "📧 Send Gmail":          { "main": [[{ "node": "✅ Execution Log", "type": "main", "index": 0 }]] },
+    "📢 Send Gotify":         { "main": [[{ "node": "✅ Execution Log", "type": "main", "index": 0 }]] }
+  },
+
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "",
+    "timezone": "Asia/Qatar"
+  },
+
+  "tags": ["JOJO", "Gemini", "Orchestrator", "Multi-Agent"],
+
+  "_buildNotes": {
+    "fixes_from_original": [
+      "38 مشكلة مُصلَّحة (typeVersion، connections، tools، model، إلخ)",
+      "أضفنا نموذج Gemini 1.5 Pro مع ai_languageModel connection",
+      "ربطنا جميع الأدوات عبر ai_tool — لا main",
+      "استبدلنا Merge بـ Router/Switch الصحيح",
+      "أضفنا Window Memory للسياق",
+      "كل tool هو toolHttpRequest أو toolCode — وليس httpRequest عادي",
+      "أضفنا URL وparameters كاملة لكل tool",
+      "الـ Credentials من env vars لا IDs ثابتة",
+      "أضفنا Code node لتحليل مخرجات الوكيل",
+      "تدفق الإخراج الصحيح: Router → Telegram/Email/Gotify"
+    ],
+    "required_env_vars": [
+      "GEMINI_CREDENTIAL_ID    — ID الـ credential في n8n",
+      "TELEGRAM_CREDENTIAL_ID  — ID الـ credential في n8n",
+      "GMAIL_CREDENTIAL_ID     — ID الـ credential في n8n",
+      "TELEGRAM_DEFAULT_CHAT_ID — chat ID لإرسال الإشعارات",
+      "DEFAULT_EMAIL           — البريد الافتراضي للإرسال",
+      "SERPAPI_KEY             — مفتاح SerpAPI",
+      "NEWSAPI_KEY             — مفتاح NewsAPI.org",
+      "OPENAI_API_KEY          — مفتاح OpenAI",
+      "ANTHROPIC_API_KEY       — مفتاح Anthropic",
+      "GROK_API_KEY            — مفتاح xAI Grok",
+      "DEEPSEEK_API_KEY        — مفتاح DeepSeek",
+      "GOTIFY_URL              — عنوان خادم Gotify",
+      "GOTIFY_APP_TOKEN        — توكن تطبيق Gotify"
+    ]
+  }
+}

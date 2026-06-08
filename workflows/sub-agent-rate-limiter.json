@@ -1,0 +1,103 @@
+{
+    "name":  "sub-agent-rate-limiter",
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "inputSource":  "passthrough"
+                                     },
+                      "id":  "9b0c0750-ce9b-4274-9281-61cad59ed547",
+                      "typeVersion":  1.1,
+                      "name":  "Start",
+                      "type":  "n8n-nodes-base.executeWorkflowTrigger",
+                      "position":  [
+                                       3568,
+                                       992
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+
+                                     },
+                      "type":  "n8n-nodes-base.merge",
+                      "typeVersion":  3.2,
+                      "position":  [
+                                       3776,
+                                       1216
+                                   ],
+                      "id":  "7a584a8a-90d1-4943-99b7-663ed928d967",
+                      "name":  "Merge",
+                      "alwaysOutputData":  true,
+                      "executeOnce":  true,
+                      "retryOnFail":  true,
+                      "notes":  "{\n  \"nodes\": [\n    {\n      \"parameters\": {},\n      \"type\": \"n8n-nodes-base.merge\",\n      \"typeVersion\": 3.2,\n      \"position\": [\n        3984,\n        1200\n      ],\n      \"id\": \"966946c4-82b2-40a2-a891-3e78c5c5ff1e\",\n      \"name\": \"Merge\",\n      \"alwaysOutputData\": true,\n      \"executeOnce\": true,\n      \"retryOnFail\": true,\n      \"onError\": \"continueRegularOutput\"\n    }\n  ],\n  \"connections\": {},\n  \"pinData\": {},\n  \"meta\": {\n    \"instanceId\": \"61cc2232ca40e3b682a6481ac249b5afe9a467913ec1194f7ba3fde92780227c\"\n  }\n}"
+                  },
+                  {
+                      "parameters":  {
+                                         "workflowId":  {
+                                                            "__rl":  true,
+                                                            "value":  "NmEDxNbYgluTr3AG",
+                                                            "mode":  "list"
+                                                        },
+                                         "workflowInputs":  {
+                                                                "mappingMode":  "defineBelow",
+                                                                "value":  {
+
+                                                                          },
+                                                                "matchingColumns":  [
+
+                                                                                    ],
+                                                                "schema":  [
+
+                                                                           ],
+                                                                "attemptToConvertTypes":  false,
+                                                                "convertFieldsToString":  true
+                                                            },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "type":  "n8n-nodes-base.executeWorkflow",
+                      "typeVersion":  1.2,
+                      "position":  [
+                                       3568,
+                                       1216
+                                   ],
+                      "name":  "Call My Sub-workflow",
+                      "id":  "b8a2e48d-6777-4d7f-bf60-f409b312c91b"
+                  }
+              ],
+    "connections":  {
+                        "Call My Sub-workflow":  {
+                                                     "main":  [
+                                                                  [
+                                                                      {
+                                                                          "node":  "Merge",
+                                                                          "type":  "main",
+                                                                          "index":  0
+                                                                      }
+                                                                  ]
+                                                              ]
+                                                 },
+                        "Start":  {
+                                      "main":  [
+                                                   [
+                                                       {
+                                                           "node":  "Call My Sub-workflow",
+                                                           "type":  "main",
+                                                           "index":  0
+                                                       }
+                                                   ]
+                                               ]
+                                  }
+                    },
+    "settings":  {
+                     "executionOrder":  "v1",
+                     "availableInMCP":  true
+                 },
+    "staticData":  null,
+    "pinData":  {
+
+                },
+    "triggerCount":  0,
+    "meta":  null
+}

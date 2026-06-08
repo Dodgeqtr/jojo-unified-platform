@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  # ===== قاعدة البيانات =====
+  postgres:
+    image: postgres:15-alpine
+    container_name: jojo-postgres
+    environment:
+      POSTGRES_DB: jojo_db
+      POSTGRES_USER: jojo_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-jojo_dev_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jojo_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===== Redis Cache =====
+  redis:
+    image: redis:7-alpine
+    container_name: jojo-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===== Operations Service (API Gateway) =====
+  operations-service:
+    build:
+      context: .
+      dockerfile: packages/api/operations-service/Dockerfile
+    container_name: jojo-operations
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://jojo_user:${DB_PASSWORD:-jojo_dev_password}@postgres:5432/jojo_db
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: ${NODE_ENV:-development}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./packages/api/operations-service/src:/app/src
+    command: npm run dev
+
+  # ===== CRM Service =====
+  crm-service:
+    build:
+      context: .
+      dockerfile: packages/api/crm-service/Dockerfile
+    container_name: jojo-crm
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://jojo_user:${DB_PASSWORD:-jojo_dev_password}@postgres:5432/jojo_db
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: ${NODE_ENV:-development}
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./packages/api/crm-service/src:/app/src
+    command: npm run dev
+
+  # ===== n8n Service =====
+  n8n-service:
+    build:
+      context: .
+      dockerfile: packages/api/n8n-service/Dockerfile
+    container_name: jojo-n8n
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://jojo_user:${DB_PASSWORD:-jojo_dev_password}@postgres:5432/jojo_db
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: ${NODE_ENV:-development}
+      N8N_API_URL: ${N8N_API_URL:-http://localhost:5678}
+    ports:
+      - "3002:3002"
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./packages/api/n8n-service/src:/app/src
+    command: npm run dev
+
+  # ===== Frontend (Vite) =====
+  web:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile.dev
+    container_name: jojo-web
+    environment:
+      VITE_API_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./packages/web/src:/app/src
+      - ./packages/web/public:/app/public
+    command: npm run dev
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: jojo-network

@@ -1,0 +1,103 @@
+{
+    "name":  "sub-agent-log-writer",
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "inputSource":  "passthrough"
+                                     },
+                      "id":  "8f4eacf1-1d05-430b-90f6-27f07a4a93d6",
+                      "typeVersion":  1.1,
+                      "name":  "Start",
+                      "type":  "n8n-nodes-base.executeWorkflowTrigger",
+                      "position":  [
+                                       3568,
+                                       1200
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "workflowId":  {
+                                                            "__rl":  true,
+                                                            "value":  "U8fSqtVGui4q94Q1",
+                                                            "mode":  "list"
+                                                        },
+                                         "workflowInputs":  {
+                                                                "mappingMode":  "defineBelow",
+                                                                "value":  {
+
+                                                                          },
+                                                                "matchingColumns":  [
+
+                                                                                    ],
+                                                                "schema":  [
+
+                                                                           ],
+                                                                "attemptToConvertTypes":  false,
+                                                                "convertFieldsToString":  true
+                                                            },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "type":  "n8n-nodes-base.executeWorkflow",
+                      "typeVersion":  1.2,
+                      "position":  [
+                                       3776,
+                                       1200
+                                   ],
+                      "name":  "Call My Sub-workflowجروك",
+                      "id":  "fcc021a9-9de6-44ce-8951-3c1723607738"
+                  },
+                  {
+                      "parameters":  {
+
+                                     },
+                      "type":  "n8n-nodes-base.merge",
+                      "typeVersion":  3.2,
+                      "position":  [
+                                       3984,
+                                       1200
+                                   ],
+                      "id":  "966946c4-82b2-40a2-a891-3e78c5c5ff1e",
+                      "name":  "Merge",
+                      "alwaysOutputData":  true,
+                      "executeOnce":  true,
+                      "retryOnFail":  true,
+                      "onError":  "continueRegularOutput"
+                  }
+              ],
+    "connections":  {
+                        "Start":  {
+                                      "main":  [
+                                                   [
+                                                       {
+                                                           "node":  "Call My Sub-workflowجروك",
+                                                           "type":  "main",
+                                                           "index":  0
+                                                       }
+                                                   ]
+                                               ]
+                                  },
+                        "Call My Sub-workflowجروك":  {
+                                                             "main":  [
+                                                                          [
+                                                                              {
+                                                                                  "node":  "Merge",
+                                                                                  "type":  "main",
+                                                                                  "index":  0
+                                                                              }
+                                                                          ]
+                                                                      ]
+                                                         }
+                    },
+    "settings":  {
+                     "executionOrder":  "v1",
+                     "availableInMCP":  true
+                 },
+    "staticData":  null,
+    "pinData":  {
+
+                },
+    "triggerCount":  0,
+    "meta":  null
+}

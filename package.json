@@ -1,0 +1,23 @@
+{
+  "name": "jojo-unified-platform",
+  "version": "1.0.0",
+  "description": "Jojo Unified Platform - نظام موحد متعدد الطبقات للعمليات والأتمتة والإدارة",
+  "private": true,
+  "workspaces": [
+    "packages/api/*",
+    "packages/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w packages/web & npm run dev -w packages/api/n8n-service & npm run dev -w packages/api/crm-service & npm run dev -w packages/api/operations-service",
+    "build": "npm run build -ws",
+    "test": "npm run test -ws",
+    "lint": "npm run lint -ws",
+    "db:migrate": "cd database && npm run migrate",
+    "db:seed": "cd database && npm run seed"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0"
+  }
+}

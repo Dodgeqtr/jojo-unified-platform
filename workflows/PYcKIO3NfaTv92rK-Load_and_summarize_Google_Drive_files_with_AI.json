@@ -1,0 +1,17 @@
+{
+  "name": "Load and summarize Google Drive files with AI",
+  "nodes": [],
+  "connections": {},
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 0,
+  "meta": {
+    "templateId": "1962",
+    "templateCredsSetupCompleted": true
+  }
+}

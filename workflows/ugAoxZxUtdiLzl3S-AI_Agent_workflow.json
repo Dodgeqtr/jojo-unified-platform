@@ -1,0 +1,449 @@
+{
+  "name": "AI Agent workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://www.theverge.com/rss/index.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedReadTool",
+      "typeVersion": 1.2,
+      "position": [
+        16,
+        652
+      ],
+      "id": "303e9b4e-cc4e-4d8a-8ede-7550f070d212",
+      "name": "Get Tech News"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Reads the news",
+        "url": "=https://feeds.bbci.co.uk/news/world/rss.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedReadTool",
+      "typeVersion": 1.2,
+      "position": [
+        144,
+        652
+      ],
+      "id": "4090a753-f131-40b1-87c3-cf74d5a7e325",
+      "name": "Get World News"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -560,
+        496
+      ],
+      "id": "651543b5-0213-433f-8760-57d62b8d6d64",
+      "name": "Run every day at 7AM",
+      "notesInFlow": true,
+      "notes": "Double-click to open"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "85b5c530-2c13-4424-ab83-05979bc879a5",
+              "name": "output",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        620
+      ],
+      "id": "99f7bb9e-f8c0-43ca-a9a8-a76634ac9611",
+      "name": "Output",
+      "notesInFlow": true,
+      "notes": "Double-click to open"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        304
+      ],
+      "id": "a0390291-6794-4673-9a6a-5c3d3a5d9e4b",
+      "name": "Click ‘Execute workflow’ to run"
+    },
+    {
+      "parameters": {
+        "content": "## ⚡ Start here:",
+        "height": 224,
+        "width": 224,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        240
+      ],
+      "id": "fac5929f-e065-4474-96b1-7bcc06834238",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Summarize world news and tech news from the last 24 hours. \nSkip your comments. \nThe titles should be \"World news:\" and \"Tech news:\" \nToday is {{ $today }}",
+        "options": {
+          "systemMessage": "أنت ملخص أخبار ذكي. مهمتك تلخيص الأخبار العالمية والتقنية من آخر 24 ساعة. استخدم الأدوات المتاحة للحصول على الأخبار وقدم ملخصاً منظماً بعنوانين: \"الأخبار العالمية:\" و \"الأخبار التقنية:\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -56,
+        428
+      ],
+      "id": "084d56aa-d157-4964-9073-b36d9d9589c5",
+      "name": "AI Summary Agent",
+      "notesInFlow": true,
+      "notes": "Double-click to open"
+    },
+    {
+      "parameters": {
+        "content": "### Double click here to see the results:",
+        "height": 240,
+        "width": 192,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        304,
+        540
+      ],
+      "id": "a4b7a69a-0db8-4b9b-a81d-fd83378043a3",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### 📰 Daily AI Summary\n\n\nThis workflow gets the latest news and asks AI to summarize it for you.\n\n⭐ Bonus: Send the summary via email by connecting your Gmail account\n\n▶ Watch the video to get started ",
+        "height": 272,
+        "width": 224,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        32
+      ],
+      "id": "74d80857-5e63-47a8-8e86-8ecd10fd5f9e",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "sendTo": "dodgeqtr@gmail.com",
+        "subject": "=dodgeqtr@gmail.com\n",
+        "emailType": "text",
+        "message": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        576,
+        620
+      ],
+      "id": "45625d0d-bf26-4379-9eed-7bbc8e5d87a5",
+      "name": "Send summary by email",
+      "webhookId": "093b04f1-5e78-4926-9863-1b100d6f2ead",
+      "notesInFlow": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "U4czE8RxgTIGvE0w",
+          "name": "Gmail account 2"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "Double-click to open"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "request"
+            },
+            {
+              "name": "sessionId"
+            }
+          ]
+        }
+      },
+      "id": "2842c372-45a9-4a7b-b115-a2f5cc9895c2",
+      "name": "Receive Request from My workflow 3",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -336,
+        620
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "e2317441-d055-478a-b00a-480e84cb0863",
+      "name": "Coordinator Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -560,
+        1052
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "response",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "timestamp",
+              "value": "={{ $now }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "source",
+              "value": "AI News Summary Coordinator",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "18ff678c-2ad5-4fa6-8d02-ab482a585054",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        428
+      ]
+    },
+    {
+      "parameters": {
+        "name": "get_news_summary",
+        "description": "يحصل على ملخص الأخبار العالمية والتقنية من آخر 24 ساعة. استخدم هذه الأداة عندما يطلب المستخدم ملخص الأخبار.",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ugAoxZxUtdiLzl3S"
+        }
+      },
+      "id": "73ce2191-4c06-4ccd-a5cd-65f6b7127b55",
+      "name": "Get News Summary Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -560,
+        1260
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a821cc11-b00f-4dfc-a26d-ead7054ae59d",
+      "name": "Gemini Pro Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        652
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "30DDnia40IbLh11L",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "40eda32a-e8c3-4857-bd7e-284fe04ebceb",
+      "name": "Combine All Articles",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -336,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Get Tech News": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Summary Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get World News": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Summary Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run every day at 7AM": {
+      "main": [
+        [
+          {
+            "node": "Combine All Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Click ‘Execute workflow’ to run": {
+      "main": [
+        [
+          {
+            "node": "Combine All Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Summary Agent": {
+      "main": [
+        [
+          {
+            "node": "Output",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output": {
+      "main": [
+        [
+          {
+            "node": "Send summary by email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Receive Request from My workflow 3": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Summary Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Coordinator Memory": {
+      "ai_memory": [
+        []
+      ]
+    },
+    "Get News Summary Tool": {
+      "ai_tool": [
+        []
+      ]
+    },
+    "Prepare Response": {
+      "main": [
+        []
+      ]
+    },
+    "Gemini Pro Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Summary Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine All Articles": {
+      "main": [
+        [
+          {
+            "node": "AI Summary Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionOrder": "v0",
+    "binaryMode": "separate"
+  },
+  "staticData": {
+    "node:Run every day at 7AM": {
+      "recurrenceRules": []
+    }
+  },
+  "pinData": {},
+  "triggerCount": 1,
+  "meta": {
+    "templateId": "ready-to-run-ai-workflow",
+    "templateCredsSetupCompleted": true
+  }
+}
