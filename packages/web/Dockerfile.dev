@@ -1,8 +1,11 @@
 FROM node:20-alpine
 WORKDIR /app
-COPY package.json .
+COPY packages/web/package*.json ./
 RUN npm install
-COPY src /app/src
-COPY index.html /app
+COPY packages/web/src ./src
+COPY packages/web/index.html ./
+COPY packages/web/tsconfig*.json ./
+COPY packages/web/vite.config.ts ./
+COPY shared /shared
 EXPOSE 5173
 CMD ["npm", "run", "dev"]

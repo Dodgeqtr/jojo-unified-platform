@@ -1,7 +1,7 @@
 // وكيل CRM - يدير العقارات والعملاء والعقود
-import { JOJO_SYSTEM_PROMPT } from '../shared/systemPrompt'
-import { invokeLLM, Message } from '../shared/llm'
-import { query } from '../shared/db'
+import { JOJO_SYSTEM_PROMPT } from '../shared/core/jojo-system-prompt'
+import { invokeLLM, Message } from '../shared/core/llm'
+import { query } from '../shared/core/db'
 
 export async function handleCRM(input: { action: string; params?: any }) {
   const { action, params = {} } = input

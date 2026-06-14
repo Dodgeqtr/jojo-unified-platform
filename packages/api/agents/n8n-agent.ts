@@ -1,6 +1,6 @@
 // وكيل n8n - يدير الأتمتة وسير العمل
-import { JOJO_SYSTEM_PROMPT } from '../shared/systemPrompt'
-import { invokeLLM, Message } from '../shared/llm'
+import { JOJO_SYSTEM_PROMPT } from '../shared/core/jojo-system-prompt'
+import { invokeLLM, Message } from '../shared/core/llm'
 
 const N8N_HUB_URL = process.env.N8N_HUB_URL || 'https://dodgeqtr.app.n8n.cloud/webhook/jojo-opshub-v1'
 const N8N_API_URL = process.env.N8N_API_URL || 'https://dodgeqtr.app.n8n.cloud'

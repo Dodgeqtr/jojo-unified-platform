@@ -1,0 +1,98 @@
+{
+  "name": "🧠 Jojo Master Agent — FIXED",
+  "nodes": [
+    {
+      "id": "trigger-webhook",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "jojo-master-agent",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "id": "model-gemini",
+      "name": "Gemini Pro Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [250, 500],
+      "parameters": {
+        "model": "models/gemini-2.0-flash-001",
+        "options": {}
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "30DDnia40IbLh11L",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "id": "memory-buffer",
+      "name": "Conversation Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [500, 200],
+      "parameters": {
+        "contextLength": 10,
+        "sessionKey": "={{ $json.sessionId || $json.session_id || 'default' }}"
+      }
+    },
+    {
+      "id": "agent-master",
+      "name": "Jojo Master Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [500, 350],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput || $json.message }}",
+        "options": {
+          "systemMessage": "أنت جوجو — المساعدة الشخصية الذكية لبوحمد.\n\nقواعد:\n1. أجب بالعربية دائماً\n2. كن ودوداً ومهنياً\n3. استخدم الأدوات المتاحة عند الحاجة\n4. اسأل للتوضيح إذا كان الطلب غير واضح"
+        }
+      }
+    },
+    {
+      "id": "output-set",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [750, 350],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ {\n  \"reply\": $json.output,\n  \"agent\": \"jojo-master\",\n  \"timestamp\": Date.now()\n} }}"
+      }
+    },
+    {
+      "id": "webhook-response",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [950, 350],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Jojo Master Agent", "type": "main", "index": 0 }]]
+    },
+    "Gemini Pro Model": {
+      "ai_languageModel": [[{ "node": "Jojo Master Agent", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Conversation Memory": {
+      "ai_memory": [[{ "node": "Jojo Master Agent", "type": "ai_memory", "index": 0 }]]
+    },
+    "Jojo Master Agent": {
+      "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]]
+    },
+    "Format Response": {
+      "main": [[{ "node": "Response", "type": "main", "index": 0 }]]
+    }
+  }
+}

@@ -1,7 +1,7 @@
 // وكيل المراقبة - يراقب صحة النظام ويصدر تقارير
-import { JOJO_SYSTEM_PROMPT } from '../shared/systemPrompt'
-import { invokeLLM, Message } from '../shared/llm'
-import { query } from '../shared/db'
+import { JOJO_SYSTEM_PROMPT } from '../shared/core/jojo-system-prompt'
+import { invokeLLM, Message } from '../shared/core/llm'
+import { query } from '../shared/core/db'
 import * as os from 'os'
 
 export async function handleMonitor(input: { action: string; params?: any }) {

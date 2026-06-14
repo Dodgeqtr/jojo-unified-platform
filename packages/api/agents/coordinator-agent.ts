@@ -1,7 +1,7 @@
 // وكيل التنسيق المركزي - يدير الحوار ويوزع المهام للوكلاء الآخرين
-import { JOJO_SYSTEM_PROMPT } from '../shared/systemPrompt'
-import { invokeLLM, Message } from '../shared/llm'
-import { query } from '../shared/db'
+import { JOJO_SYSTEM_PROMPT } from '../shared/core/jojo-system-prompt'
+import { invokeLLM, Message } from '../shared/core/llm'
+import { query } from '../shared/core/db'
 
 export async function handleCoordinator(input: { message: string; context?: any }) {
   const contextInfo = input.context

@@ -6,6 +6,7 @@ import Contacts from './pages/Contacts'
 import Properties from './pages/Properties'
 import Workflows from './pages/Workflows'
 import Settings from './pages/Settings'
+import Agents from './pages/Agents'
 
 const queryClient = new QueryClient()
 
@@ -20,6 +21,7 @@ function App() {
             <Route path="/contacts" element={<Contacts />} />
             <Route path="/properties" element={<Properties />} />
             <Route path="/workflows" element={<Workflows />} />
+            <Route path="/agents" element={<Agents />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>

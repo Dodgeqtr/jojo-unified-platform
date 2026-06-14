@@ -1,5 +1,5 @@
 import express from 'express'
-import { query } from '../../shared/db'
+import { query } from '../../shared/core/db'
 
 const app = express()
 const PORT = process.env.PORT || 3001

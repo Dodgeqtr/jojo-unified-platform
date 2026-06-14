@@ -1,119 +1,197 @@
-version: '3.8'
-
 services:
-  # ===== قاعدة البيانات =====
   postgres:
     image: postgres:15-alpine
     container_name: jojo-postgres
     environment:
       POSTGRES_DB: jojo_db
       POSTGRES_USER: jojo_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-jojo_dev_password}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      POSTGRES_PASSWORD: jojo_dev_password
     ports:
       - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jojo_user"]
+      test: ["CMD-SHELL", "pg_isready -U jojo_user -d jojo_db"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - jojo-network
 
-  # ===== Redis Cache =====
   redis:
     image: redis:7-alpine
     container_name: jojo-redis
     ports:
       - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - jojo-network
 
-  # ===== Operations Service (API Gateway) =====
+  ollama:
+    image: ollama/ollama:latest
+    container_name: jojo-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - jojo-network
+
+  n8n-local:
+    image: n8nio/n8n:latest
+    container_name: jojo-n8n-local
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_PATH=/n8n/
+      - WEBHOOK_URL=http://localhost/
+      - GENERIC_TIMEZONE=Asia/Qatar
+      - N8N_RUNNERS_ENABLED=true
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_DATABASE=jojo_db
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_USER=jojo_user
+      - DB_POSTGRESDB_PASSWORD=jojo_dev_password
+    volumes:
+      - n8n-local-data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    networks:
+      - jojo-network
+
   operations-service:
     build:
       context: .
-      dockerfile: packages/api/operations-service/Dockerfile
+      dockerfile: ./packages/api/operations-service/Dockerfile
     container_name: jojo-operations
+    # ports:
+    #   - "3000:3000"
     environment:
-      PORT: 3000
-      DATABASE_URL: postgresql://jojo_user:${DB_PASSWORD:-jojo_dev_password}@postgres:5432/jojo_db
-      REDIS_URL: redis://redis:6379
-      NODE_ENV: ${NODE_ENV:-development}
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
-    ports:
-      - "3000:3000"
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_URL=postgresql://jojo_user:jojo_dev_password@postgres:5432/jojo_db
+      - REDIS_URL=redis://redis:6379
+      - N8N_API_URL=https://dodgeqtr.app.n8n.cloud
+      - N8N_API_KEY=
+      - N8N_LOCAL_API_URL=http://n8n-local:5678
+      - N8N_LOCAL_WEBHOOK_URL=http://n8n-local:5678/webhook/jojo-local-agent
+      - N8N_LOCAL_API_KEY=
+      - LLM_PROVIDER=ollama
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3.1
+      - GEMINI_API_KEY=
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-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}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ./packages/api/operations-service/src:/app/src
-    command: npm run dev
+      ollama:
+        condition: service_started
+    networks:
+      - jojo-network
 
-  # ===== CRM Service =====
   crm-service:
     build:
-      context: .
-      dockerfile: packages/api/crm-service/Dockerfile
+      context: ./packages/api/crm-service
+      dockerfile: Dockerfile
     container_name: jojo-crm
+    # ports:
+    #   - "3001:3001"
     environment:
-      PORT: 3001
-      DATABASE_URL: postgresql://jojo_user:${DB_PASSWORD:-jojo_dev_password}@postgres:5432/jojo_db
-      REDIS_URL: redis://redis:6379
-      NODE_ENV: ${NODE_ENV:-development}
-    ports:
-      - "3001:3001"
+      - NODE_ENV=development
+      - PORT=3001
+      - DATABASE_URL=postgresql://jojo_user:jojo_dev_password@postgres:5432/jojo_db
+      - REDIS_URL=redis://redis:6379
     depends_on:
-      - postgres
-      - redis
-    volumes:
-      - ./packages/api/crm-service/src:/app/src
-    command: npm run dev
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - jojo-network
 
-  # ===== n8n Service =====
   n8n-service:
     build:
-      context: .
-      dockerfile: packages/api/n8n-service/Dockerfile
+      context: ./packages/api/n8n-service
+      dockerfile: Dockerfile
     container_name: jojo-n8n
+    # ports:
+    #   - "3002:3002"
     environment:
-      PORT: 3002
-      DATABASE_URL: postgresql://jojo_user:${DB_PASSWORD:-jojo_dev_password}@postgres:5432/jojo_db
-      REDIS_URL: redis://redis:6379
-      NODE_ENV: ${NODE_ENV:-development}
-      N8N_API_URL: ${N8N_API_URL:-http://localhost:5678}
-    ports:
-      - "3002:3002"
+      - NODE_ENV=development
+      - PORT=3002
+      - DATABASE_URL=postgresql://jojo_user:jojo_dev_password@postgres:5432/jojo_db
+      - REDIS_URL=redis://redis:6379
+      - N8N_API_URL=http://n8n-local:5678
+      - N8N_API_KEY=
     depends_on:
-      - postgres
-      - redis
-    volumes:
-      - ./packages/api/n8n-service/src:/app/src
-    command: npm run dev
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - jojo-network
 
-  # ===== Frontend (Vite) =====
   web:
     build:
-      context: .
-      dockerfile: packages/web/Dockerfile.dev
+      context: ./packages/web
+      dockerfile: Dockerfile
     container_name: jojo-web
+    # ports:
+    #   - "5173:5173"
     environment:
-      VITE_API_URL: http://localhost:3000
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./packages/web/src:/app/src
-      - ./packages/web/public:/app/public
-    command: npm run dev
+      - VITE_API_URL=http://localhost
+      - VITE_CRM_URL=http://localhost
+      - VITE_N8N_URL=http://localhost
+    depends_on:
+      - operations-service
+      - crm-service
+      - n8n-service
+    networks:
+      - jojo-network
 
-volumes:
-  postgres_data:
+  gateway:
+    image: nginx:alpine
+    container_name: jojo-gateway
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+      - operations-service
+      - crm-service
+      - n8n-local
+    networks:
+      - jojo-network
 
 networks:
-  default:
-    name: jojo-network
+  jojo-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  ollama-data:
+  n8n-local-data:

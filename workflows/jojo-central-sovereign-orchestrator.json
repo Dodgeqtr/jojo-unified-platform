@@ -1,0 +1,116 @@
+{
+  "name": "Jojo-Central-Sovereign-Orchestrator",
+  "description": "الوكيل الذكي السيادي المركزي - Jojo Unified Core AI Agent",
+  "tags": ["jojo", "orchestrator", "llm", "sovereign", "local"],
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-trigger-id",
+      "name": "On-Demand Activation",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "model": "llama3.1",
+        "options": {
+          "baseUrl": "http://jojo-ollama:11434",
+          "temperature": 0.3
+        }
+      },
+      "id": "node-ollama-id",
+      "name": "Local Llama3.1 Core",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [340, 450]
+    },
+    {
+      "parameters": {
+        "promptType": "custom",
+        "text": "={{$json.message}}",
+        "systemMessage": "اسمك المشفر: Jojo Unified Core. أنت الوكيل الذكي السيادي والمساعد الشخصي لـ Master بوحمد. نطاق عملك محلي وآمن بالكامل داخل سيرفر الـ HP (BOSS). اللغة الأساسية: العربية. التواصل: احترافي وودود. الأولويات: الأمان المحلي، الخصوصية الكاملة، الكفاءة العالية."
+      },
+      "id": "node-agent-id",
+      "name": "Jojo Thinking Brain",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1,
+      "position": [340, 240]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://jojo-operations:3000/api/chat",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{$json.response}}"
+            },
+            {
+              "name": "agent",
+              "value": "Jojo-Core"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{new Date().toISOString()}}"
+            }
+          ]
+        }
+      },
+      "id": "node-operations-webhook",
+      "name": "Send to Operations Service",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [600, 300]
+    }
+  ],
+  "connections": {
+    "On-Demand Activation": {
+      "main": [
+        [
+          {
+            "node": "Jojo Thinking Brain",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Local Llama3.1 Core": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Jojo Thinking Brain",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jojo Thinking Brain": {
+      "main": [
+        [
+          {
+            "node": "Send to Operations Service",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Riyadh"
+  },
+  "staticData": {
+    "agentName": "Jojo-Central-Sovereign-Orchestrator",
+    "version": "1.0.0",
+    "environment": "local-sovereign",
+    "llmProvider": "ollama",
+    "llmModel": "llama3.1",
+    "baseUrl": "http://jojo-ollama:11434",
+    "operationsServiceUrl": "http://jojo-operations:3000",
+    "language": "ar"
+  }
+}

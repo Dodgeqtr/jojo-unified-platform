@@ -5,6 +5,7 @@ const navItems = [
   { path: '/contacts', label: 'جهات الاتصال', icon: '📇' },
   { path: '/properties', label: 'العقارات', icon: '🏠' },
   { path: '/workflows', label: 'سير العمل', icon: '⚙️' },
+  { path: '/agents', label: 'الوكلاء الذكية', icon: '🧠' },
   { path: '/settings', label: 'الإعدادات', icon: '🔧' },
 ]
 

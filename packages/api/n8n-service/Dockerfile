@@ -1,8 +1,12 @@
 FROM node:20-alpine
+
 WORKDIR /app
-COPY package.json .
-RUN npm install
-COPY ../../shared /app/shared
-COPY src /app/src
+
+COPY package*.json ./
+RUN npm install && npm install -g tsx
+
+COPY . .
+
 EXPOSE 3002
+
 CMD ["npm", "run", "dev"]

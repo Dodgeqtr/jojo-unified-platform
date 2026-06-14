@@ -6,6 +6,23 @@
 
 ---
 
+## 🔄 تحديث الدمج - 13 يونيو 2026
+
+تم اعتماد هذا المستودع (`C:\Users\dodge\jojo-unified-platform`) كـ **المستودع الرسمي الموحد**، بعد دمج التحديثات العاملة من نسخة OneDrive:
+
+- **docker-compose.yml**: محدّث بالكامل — يضم الآن `ollama` (GPU)، `n8n-local` (مع Postgres)، `gateway` (nginx)، بالإضافة إلى الخدمات الأساسية. تم توحيد بيانات Postgres على `jojo_user/jojo_dev_password/jojo_db` في `.env` و `docker-compose.yml` معاً.
+- **operations-service**: تم تحديث `src/index.ts` و `Dockerfile` بالنسخة العاملة (تدعم `chatWithOllama`, `chatWithAnthropic`, وسلسلة fallback عبر `N8N_LOCAL_WEBHOOK_URL`). متغير `ANTHROPIC_API_KEY` محفوظ كما هو دون تعديل أو حذف، مع قيمة افتراضية عبر `${ANTHROPIC_API_KEY:-...}`.
+- **nginx.conf**: أُضيف للجذر — يحتوي توجيه webhooks/n8n/api عبر gateway.
+- **packages/api/shared**: أُضيف `core/` و `routers/` من نسخة OneDrive، مع الحفاظ على الملفات القديمة.
+- **workflows/**: تم دمج 3 ملفات إضافية من OneDrive (`jojo-central-orchestrator.json`, `jojo-central-sovereign-orchestrator.json`, `ollama-credentials.json`) بدون حذف أي من الملفات الموجودة (18 ملف إجمالي الآن).
+- **start-jojo.bat / stop-jojo.bat**: أُضيفت للجذر من نسخة OneDrive.
+
+### ⚠️ قرارات معلقة (تحتاج مراجعة بشرية)
+- **بنية الواجهة الأمامية (`packages/web/src`)**: يوجد تعارض بين بنيتين — هذا المستودع يستخدم بنية صفحات (`pages/Dashboard.tsx`, `Contacts.tsx`, `Properties.tsx`, `Settings.tsx`, `Workflows.tsx` + `components/`, `layouts/`, `services/`)، بينما نسخة OneDrive تستخدم بنية وحدات (`modules/agents`, `modules/automation`, `modules/crm`, `modules/dashboard`, `modules/settings`). لم يتم دمجهما — يجب اختيار بنية واحدة قبل التطوير المستقبلي.
+- **ملفات حساسة في نسخ أخرى لم تُلمس**: عُثر على `JOJO_STUDIO/06_Sovereign_Vault/gcp_vault_key.json` ومفتاح SSH خاص (`Desktop/jojo-unified-real/backup/JOJO_MASTER_BACKUP/.ssh/id_rsa`) — هذه خارج هذا المستودع ولم تُعدَّل، لكنها تستحق المراجعة الأمنية.
+
+---
+
 ## 📁 ملفات المشروع المنشأة
 
 ### 26 ملف رئيسي تم إنشاؤها:
