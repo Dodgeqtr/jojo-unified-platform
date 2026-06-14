@@ -39,16 +39,9 @@ services:
     image: ollama/ollama:latest
     container_name: jojo-ollama
     ports:
-      - "11434:11434"
+      - "11435:11434"
     volumes:
       - ollama-data:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     networks:
       - jojo-network
 

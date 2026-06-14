@@ -7,7 +7,7 @@ import { Pool, type QueryResult } from "pg";
 
 const pool = new Pool({
   connectionString:
-    process.env.DATABASE_URL ?? "postgresql://jojo:jojo@localhost:5432/jojo_db",
+    process.env.DATABASE_URL ?? "postgresql://postgres@localhost:5433/postgres",
   max: 10,
   idleTimeoutMillis: 30_000,
 });

@@ -6,6 +6,16 @@ const PORT = process.env.PORT || 3002
 const N8N_API_URL = process.env.N8N_API_URL || 'https://dodgeqtr.app.n8n.cloud'
 const N8N_API_KEY = process.env.N8N_API_KEY
 
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, X-N8N-API-KEY");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json())
 
 app.get('/health', (_req, res) => {

@@ -104,44 +104,52 @@ app.get(["/health", "/api/health"], (_req, res) => {
 
 // ─── Dashboard ─────────────────────────────────────────────────────────────
 app.get("/api/dashboard", async (_req, res) => {
+  let wfAll: { active: boolean }[] = [];
+  let wfActive = 28;
+  let wfTotal = 35;
+  let n8nStatus = "unknown";
+
   try {
     // Check n8n workflows
     const n8nRes = await fetch(`${N8N_API_URL}/api/v1/workflows?limit=100`, {
       headers: { "X-N8N-API-KEY": N8N_API_KEY },
     });
-    const n8nData = n8nRes.ok
-      ? ((await n8nRes.json()) as { data?: { active: boolean }[] })
-      : { data: [] };
-    const wfAll    = n8nData.data ?? [];
-    const wfActive = wfAll.filter((w) => w.active).length;
+    if (n8nRes.ok) {
+      const n8nData = (await n8nRes.json()) as { data?: { active: boolean }[] };
+      wfAll = n8nData.data ?? [];
+      wfActive = wfAll.filter((w) => w.active).length;
+      wfTotal = wfAll.length;
+      n8nStatus = "active";
+    }
+  } catch (err: any) {
+    console.warn("[dashboard] failed to fetch n8n workflows:", err.message);
+  }
 
+  let contactsCount = 0;
+  let propertiesCount = 0;
+  let dbStatus = "connected";
+
+  try {
     // Fetch real counts from DB
-    const [contactsRes, propertiesRes] = await Promise.allSettled([
+    const [contactsRes, propertiesRes] = await Promise.all([
       query("SELECT COUNT(*) as count FROM contacts"),
       query("SELECT COUNT(*) as count FROM properties"),
     ]);
-
-    const contactsCount = contactsRes.status === "fulfilled" ? parseInt((contactsRes.value[0] as any)?.count || "0") : 0;
-    const propertiesCount = propertiesRes.status === "fulfilled" ? parseInt((propertiesRes.value[0] as any)?.count || "0") : 0;
-
-    res.json({
-      system_status: "operational",
-      services:      { n8n: "active", crm: "active", database: "connected" },
-      workflows:     { active: wfActive, total: wfAll.length },
-      contacts:      contactsCount,
-      properties:    propertiesCount,
-      ts:            new Date().toISOString(),
-    });
+    contactsCount = parseInt((contactsRes[0] as any)?.count || "0");
+    propertiesCount = parseInt((propertiesRes[0] as any)?.count || "0");
   } catch (err: any) {
-    console.error("[dashboard] failed to compile stats:", err.message);
-    res.json({
-      system_status: "degraded",
-      services:      { n8n: "unknown", crm: "active", database: "unknown" },
-      workflows:     { active: 28, total: 35 },
-      contacts:      0,
-      properties:    0,
-    });
+    console.error("[dashboard] failed to query DB:", err.message);
+    dbStatus = "disconnected";
   }
+
+  res.json({
+    system_status: dbStatus === "connected" ? "operational" : "degraded",
+    services:      { n8n: n8nStatus, crm: "active", database: dbStatus },
+    workflows:     { active: wfActive, total: wfTotal },
+    contacts:      contactsCount,
+    properties:    propertiesCount,
+    ts:            new Date().toISOString(),
+  });
 });
 
 // ─── Storage & Winget Proxy ────────────────────────────────────────────────
