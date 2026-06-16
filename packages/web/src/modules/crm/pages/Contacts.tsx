@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react'
+import { api } from '../../../lib/api'
+import { DEFAULT_ORG_ID } from '../../../lib/constants'
 
 interface Contact {
   id: string
-  name: string
-  email: string
-  phone: string
-  company: string
-  notes?: string
+  first_name: string
+  last_name?: string | null
+  email?: string | null
+  phone?: string | null
+  company?: string | null
+  position?: string | null
+  classification?: string | null
 }
 
 export default function Contacts() {
@@ -16,19 +20,23 @@ export default function Contacts() {
   const [showAddModal, setShowAddModal] = useState(false)
 
   // Form states
-  const [name, setName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [company, setCompany] = useState('')
-  const [notes, setNotes] = useState('')
+  const [position, setPosition] = useState('')
 
   const fetchContacts = async () => {
     setIsLoading(true)
     try {
-      const res = await fetch('http://localhost:3001/api/contacts')
-      if (!res.ok) throw new Error('Failed to fetch')
-      const data = await res.json()
-      setContacts(data || [])
+      const data = await api.crmContacts.list.query({
+        org_id: DEFAULT_ORG_ID,
+        search: searchQuery || undefined,
+        limit: 100,
+        offset: 0,
+      })
+      setContacts((data as any)?.items ?? data ?? [])
     } catch (err) {
       console.error(err)
     } finally {
@@ -38,26 +46,31 @@ export default function Contacts() {
 
   useEffect(() => {
     fetchContacts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!firstName.trim()) return
 
     try {
-      const res = await fetch('http://localhost:3001/api/contacts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, phone, company, notes }),
+      await api.crmContacts.create.mutate({
+        org_id: DEFAULT_ORG_ID,
+        first_name: firstName,
+        last_name: lastName || undefined,
+        email: email || undefined,
+        phone: phone || undefined,
+        company: company || undefined,
+        position: position || undefined,
       })
-      if (!res.ok) throw new Error('Create failed')
-      
+
       // Reset form
-      setName('')
+      setFirstName('')
+      setLastName('')
       setEmail('')
       setPhone('')
       setCompany('')
-      setNotes('')
+      setPosition('')
       setShowAddModal(false)
       fetchContacts() // Refresh list
     } catch (err) {
@@ -66,11 +79,13 @@ export default function Contacts() {
     }
   }
 
+  const fullName = (c: Contact) => [c.first_name, c.last_name].filter(Boolean).join(' ')
+
   const filteredContacts = contacts.filter(
     (c) =>
-      c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.company?.toLowerCase().includes(searchQuery.toLowerCase())
+      fullName(c).toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.email ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.company ?? '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   return (
@@ -117,17 +132,17 @@ export default function Contacts() {
                 <th className="px-6 py-4">الشركة</th>
                 <th className="px-6 py-4">البريد الإلكتروني</th>
                 <th className="px-6 py-4">الهاتف</th>
-                <th className="px-6 py-4">ملاحظات</th>
+                <th className="px-6 py-4">التصنيف</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm text-gray-800">
               {filteredContacts.map((c) => (
                 <tr key={c.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">{c.name}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900">{fullName(c)}</td>
                   <td className="px-6 py-4 text-gray-500">{c.company || '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{c.email || '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{c.phone || '—'}</td>
-                  <td className="px-6 py-4 text-gray-400 max-w-xs truncate">{c.notes || '—'}</td>
+                  <td className="px-6 py-4 text-gray-400">{c.classification || '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -144,16 +159,28 @@ export default function Contacts() {
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">×</button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">الاسم الكامل *</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="محمد العلي"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">الاسم الأول *</label>
+                  <input
+                    type="text"
+                    required
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="محمد"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">الاسم الأخير</label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="العلي"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -188,12 +215,12 @@ export default function Contacts() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">ملاحظات إضافية</label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="عميل مهتم بعقارات الدفنة واللؤلؤة..."
-                  rows={3}
+                <label className="block text-xs font-semibold text-gray-500 mb-1">المنصب الوظيفي</label>
+                <input
+                  type="text"
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value)}
+                  placeholder="مدير مبيعات"
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>

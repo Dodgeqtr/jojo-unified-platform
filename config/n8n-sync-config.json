@@ -1,0 +1,238 @@
+{
+  "syncConfiguration": {
+    "name": "Jojo n8n Dual-Instance Sync",
+    "description": "Bidirectional sync between local and cloud n8n instances",
+    "version": "1.0.0",
+    "enabled": true,
+    "instances": {
+      "local": {
+        "name": "n8n-local (BOSS Server)",
+        "baseUrl": "http://localhost:5678",
+        "apiUrl": "http://n8n-local:5678",
+        "internalUrl": "http://jojo-n8n-local:5678",
+        "type": "local",
+        "agent": true,
+        "description": "Local n8n instance running sovereign AI agents",
+        "capabilities": [
+          "workflow_execution",
+          "agent_orchestration",
+          "local_llm_integration",
+          "firecrawl_integration",
+          "immediate_response"
+        ]
+      },
+      "cloud": {
+        "name": "n8n-cloud (dodgeqtr.app.n8n.cloud)",
+        "baseUrl": "https://dodgeqtr.app.n8n.cloud",
+        "apiUrl": "https://dodgeqtr.app.n8n.cloud/api",
+        "type": "cloud",
+        "agent": false,
+        "description": "Cloud n8n instance for automation and backup",
+        "capabilities": [
+          "workflow_execution",
+          "external_integrations",
+          "webhook_endpoints",
+          "scheduled_workflows",
+          "backup_storage"
+        ]
+      }
+    },
+    "syncRules": {
+      "workflows": {
+        "direction": "bidirectional",
+        "strategy": "merge",
+        "conflictResolution": "local_priority",
+        "autoSync": true,
+        "syncInterval": 300000,
+        "transformations": [
+          {
+            "name": "local_to_cloud",
+            "enabled": true,
+            "rules": [
+              {
+                "match": "agent",
+                "from": "local",
+                "to": "cloud",
+                "transform": "convert_agent_to_workflow"
+              }
+            ]
+          },
+          {
+            "name": "cloud_to_local",
+            "enabled": true,
+            "rules": [
+              {
+                "match": "workflow",
+                "from": "cloud",
+                "to": "local",
+                "transform": "convert_workflow_to_agent"
+              }
+            ]
+          }
+        ]
+      },
+      "credentials": {
+        "direction": "local_to_cloud",
+        "strategy": "encrypt_and_store",
+        "conflictResolution": "manual",
+        "autoSync": false,
+        "encryption": "aes-256-gcm"
+      },
+      "executions": {
+        "direction": "local_priority",
+        "strategy": "local_first_fallback_cloud",
+        "conflictResolution": "automatic",
+        "autoSync": true,
+        "syncInterval": 60000,
+        "retryPolicy": {
+          "maxAttempts": 3,
+          "backoffMultiplier": 2,
+          "initialDelay": 1000
+        }
+      }
+    },
+    "agentConfiguration": {
+      "local": {
+        "type": "sovereign_agent",
+        "name": "Jojo-Central-Orchestrator",
+        "enabled": true,
+        "mode": "autonomous",
+        "tools": [
+          "llama3_1_local",
+          "firecrawl_search",
+          "firecrawl_scrape",
+          "database_query",
+          "redis_cache",
+          "webhook_trigger"
+        ],
+        "responseFormat": "immediate",
+        "llmModel": "llama3.1",
+        "llmEndpoint": "http://ollama:11434",
+        "timeout": 30000
+      },
+      "cloud": {
+        "type": "automation_workflow",
+        "name": "Jojo-Cloud-Automation",
+        "enabled": true,
+        "mode": "scheduled",
+        "schedules": [
+          {
+            "name": "hourly_sync",
+            "cron": "0 * * * *"
+          },
+          {
+            "name": "daily_backup",
+            "cron": "0 2 * * *"
+          }
+        ],
+        "webhookUrl": "https://dodgeqtr.app.n8n.cloud/webhook/jojo-sync",
+        "timeout": 60000
+      }
+    },
+    "webhookConfiguration": {
+      "local": {
+        "enabled": true,
+        "baseUrl": "http://localhost",
+        "paths": {
+          "agent_trigger": "/n8n/webhook/jojo-local-agent",
+          "sync": "/n8n/webhook/jojo-sync",
+          "callback": "/n8n/webhook/jojo-callback"
+        },
+        "authentication": "jwt",
+        "rateLimiting": {
+          "enabled": true,
+          "requestsPerMinute": 100
+        }
+      },
+      "cloud": {
+        "enabled": true,
+        "baseUrl": "https://dodgeqtr.app.n8n.cloud",
+        "paths": {
+          "automation": "/webhook/jojo-automation",
+          "sync": "/webhook/jojo-sync",
+          "notification": "/webhook/jojo-notification"
+        },
+        "authentication": "api_key",
+        "apiKey": "${N8N_CLOUD_API_KEY}"
+      }
+    },
+    "integrations": {
+      "ollama": {
+        "enabled": true,
+        "endpoint": "http://ollama:11434",
+        "model": "llama3.1",
+        "instances": [
+          {
+            "name": "local_llm",
+            "endpoint": "http://ollama:11434",
+            "type": "local"
+          }
+        ]
+      },
+      "firecrawl": {
+        "enabled": true,
+        "apiKey": "${FIRECRAWL_API_KEY}",
+        "endpoints": {
+          "search": "https://api.firecrawl.dev/v0/search",
+          "scrape": "https://api.firecrawl.dev/v0/scrape",
+          "crawl": "https://api.firecrawl.dev/v0/crawl"
+        }
+      },
+      "database": {
+        "enabled": true,
+        "type": "postgresql",
+        "host": "postgres",
+        "port": 5432,
+        "database": "jojo_db",
+        "user": "jojo_user",
+        "password": "${DB_POSTGRESDB_PASSWORD}"
+      },
+      "redis": {
+        "enabled": true,
+        "host": "redis",
+        "port": 6379,
+        "db": 0,
+        "ttl": 3600
+      }
+    },
+    "monitoring": {
+      "enabled": true,
+      "logLevel": "info",
+      "metrics": {
+        "enabled": true,
+        "port": 9090
+      },
+      "healthCheck": {
+        "enabled": true,
+        "interval": 30000,
+        "endpoints": [
+          "http://localhost:5678/health",
+          "https://dodgeqtr.app.n8n.cloud/health"
+        ]
+      }
+    },
+    "security": {
+      "encryption": {
+        "enabled": true,
+        "algorithm": "aes-256-gcm",
+        "keyRotation": {
+          "enabled": true,
+          "interval": 7776000000
+        }
+      },
+      "rateLimit": {
+        "enabled": true,
+        "globalLimit": 10000,
+        "perInstanceLimit": 5000
+      },
+      "apiKeyManagement": {
+        "localApiKey": "${N8N_LOCAL_API_KEY}",
+        "cloudApiKey": "${N8N_CLOUD_API_KEY}",
+        "rotation": {
+          "enabled": true,
+          "interval": 2592000000
+        }
+      }
+    }
+  }
+}

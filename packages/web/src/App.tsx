@@ -7,6 +7,7 @@ import Properties from './pages/Properties'
 import Workflows from './pages/Workflows'
 import Settings from './pages/Settings'
 import Agents from './pages/Agents'
+import Airis from './pages/Airis'
 
 const queryClient = new QueryClient()
 
@@ -16,7 +17,8 @@ function App() {
       <Router>
         <Routes>
           <Route element={<DashboardLayout />}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Navigate to="/airis" replace />} />
+            <Route path="/airis" element={<Airis />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/contacts" element={<Contacts />} />
             <Route path="/properties" element={<Properties />} />

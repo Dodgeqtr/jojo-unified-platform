@@ -14,11 +14,15 @@ import {
   crmActivityRouter,
   crmReminderRouter,
 } from "./crmRouter";
+import { airisRouter } from "./airisRouter";
 
 export const appRouter = router({
+  // ===== Airis Core — نواة الذكاء التوليدي =====
+  airis: airisRouter,
+  // ===== Legacy / Infrastructure =====
   jojo: jojoCentralRouter,
   n8n: n8nRouter,
-  // ===== CRM / العقارات (Sprint 1 - consolidation/jojo-mvp) =====
+  // ===== CRM / العقارات (Sprint 1) =====
   properties: propertyRouter,
   contracts: contractRouter,
   favorites: favoriteRouter,

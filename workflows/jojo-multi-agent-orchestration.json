@@ -1,0 +1,316 @@
+{
+  "name": "Jojo-Multi-Agent-Orchestration",
+  "description": "نظام تنسيق الوكلاء المتعددة - Multiple Agent Coordination System",
+  "tags": ["jojo", "multi-agent", "orchestration", "parallel", "advanced"],
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "webhook-trigger",
+      "name": "User Request Trigger",
+      "type": "n8n-nodes-base.webhookTrigger",
+      "typeVersion": 1,
+      "position": [50, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse the incoming request and route to appropriate agents\nconst request = $json;\nconst taskType = request.taskType || 'general';\nconst priority = request.priority || 'medium';\nconst subtasks = request.subtasks || [];\n\nreturn {\n  taskId: `task-${Date.now()}`,\n  taskType,\n  priority,\n  subtasks,\n  originalRequest: request,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "task-parser",
+      "name": "Task Parser & Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://jojo-operations:3000/api/tasks",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "title",
+              "value": "={{$json.taskType}}"
+            },
+            {
+              "name": "description",
+              "value": "={{JSON.stringify($json.originalRequest)}}"
+            },
+            {
+              "name": "priority",
+              "value": "={{$json.priority}}"
+            },
+            {
+              "name": "subtasks",
+              "value": "={{$json.subtasks}}"
+            }
+          ]
+        }
+      },
+      "id": "create-task",
+      "name": "Create Master Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [450, 150]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://jojo-operations:3000/api/agents",
+        "authentication": "none"
+      },
+      "id": "get-agents",
+      "name": "Get Available Agents",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [450, 350]
+    },
+    {
+      "parameters": {
+        "model": "llama3.1",
+        "options": {
+          "baseUrl": "http://jojo-ollama:11434",
+          "temperature": 0.3
+        }
+      },
+      "id": "llm-researcher",
+      "name": "Researcher Agent (Llama3.1)",
+      "type": "n8n-nodes-base.lmChatOllama",
+      "typeVersion": 1,
+      "position": [650, 100]
+    },
+    {
+      "parameters": {
+        "model": "llama3.1",
+        "options": {
+          "baseUrl": "http://jojo-ollama:11434",
+          "temperature": 0.5
+        }
+      },
+      "id": "llm-analyst",
+      "name": "Analyst Agent (Llama3.1)",
+      "type": "n8n-nodes-base.lmChatOllama",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "model": "llama3.1",
+        "options": {
+          "baseUrl": "http://jojo-ollama:11434",
+          "temperature": 0.2
+        }
+      },
+      "id": "llm-executor",
+      "name": "Executor Agent (Llama3.1)",
+      "type": "n8n-nodes-base.lmChatOllama",
+      "typeVersion": 1,
+      "position": [650, 500]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Coordinate responses from all agents\nconst responses = [];\n\nif ($node['Researcher Agent (Llama3.1)'].json?.response) {\n  responses.push({\n    agent: 'researcher',\n    response: $node['Researcher Agent (Llama3.1)'].json.response\n  });\n}\n\nif ($node['Analyst Agent (Llama3.1)'].json?.response) {\n  responses.push({\n    agent: 'analyst',\n    response: $node['Analyst Agent (Llama3.1)'].json.response\n  });\n}\n\nif ($node['Executor Agent (Llama3.1)'].json?.response) {\n  responses.push({\n    agent: 'executor',\n    response: $node['Executor Agent (Llama3.1)'].json.response\n  });\n}\n\nreturn {\n  coordinatedResponse: responses,\n  timestamp: new Date().toISOString(),\n  agentCount: responses.length\n};"
+      },
+      "id": "coordinator",
+      "name": "Jojo Coordinator (Merge Results)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://jojo-operations:3000/api/tasks/{{$json.taskId}}/results",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "results",
+              "value": "={{$json.coordinatedResponse}}"
+            },
+            {
+              "name": "status",
+              "value": "completed"
+            }
+          ]
+        }
+      },
+      "id": "save-results",
+      "name": "Save Aggregated Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://jojo-operations:3000/api/firecrawl/search",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{$json.searchQuery}}"
+            },
+            {
+              "name": "limit",
+              "value": "5"
+            }
+          ]
+        }
+      },
+      "id": "firecrawl-search",
+      "name": "Firecrawl Search (Researcher Tool)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [650, 700]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://jojo-operations:3000/api/orchestration/status",
+        "authentication": "none"
+      },
+      "id": "get-status",
+      "name": "Get System Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1050, 500]
+    }
+  ],
+  "connections": {
+    "User Request Trigger": {
+      "main": [
+        [
+          {
+            "node": "Task Parser & Router",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task Parser & Router": {
+      "main": [
+        [
+          {
+            "node": "Create Master Task",
+            "index": 0
+          },
+          {
+            "node": "Get Available Agents",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Master Task": {
+      "main": [
+        [
+          {
+            "node": "Jojo Coordinator (Merge Results)",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Available Agents": {
+      "main": [
+        [
+          {
+            "node": "Researcher Agent (Llama3.1)",
+            "index": 0
+          },
+          {
+            "node": "Analyst Agent (Llama3.1)",
+            "index": 0
+          },
+          {
+            "node": "Executor Agent (Llama3.1)",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Researcher Agent (Llama3.1)": {
+      "main": [
+        [
+          {
+            "node": "Firecrawl Search (Researcher Tool)",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Firecrawl Search (Researcher Tool)": {
+      "main": [
+        [
+          {
+            "node": "Jojo Coordinator (Merge Results)",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyst Agent (Llama3.1)": {
+      "main": [
+        [
+          {
+            "node": "Jojo Coordinator (Merge Results)",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Executor Agent (Llama3.1)": {
+      "main": [
+        [
+          {
+            "node": "Jojo Coordinator (Merge Results)",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jojo Coordinator (Merge Results)": {
+      "main": [
+        [
+          {
+            "node": "Save Aggregated Results",
+            "index": 0
+          },
+          {
+            "node": "Get System Status",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Qatar",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "staticData": {
+    "orchestrationType": "multi-agent-parallel",
+    "version": "2.0.0",
+    "agents": [
+      "researcher",
+      "analyst",
+      "executor",
+      "coordinator"
+    ],
+    "capabilities": [
+      "parallel_execution",
+      "agent_coordination",
+      "result_aggregation",
+      "dynamic_routing",
+      "firecrawl_integration",
+      "llama3_1_local"
+    ]
+  }
+}

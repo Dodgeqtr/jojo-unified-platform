@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
+import { api } from '../../../lib/api'
+import { DEFAULT_ORG_ID } from '../../../lib/constants'
 
 interface Property {
   id: string
-  title: string
-  type: string
-  price: number
-  area: number
-  status: string
-  description?: string
+  name: string
+  property_type?: string | null
+  price?: number | string | null
+  size_sqm?: number | string | null
+  status?: string | null
+  location?: string | null
 }
 
 export default function Properties() {
@@ -16,20 +18,22 @@ export default function Properties() {
   const [showAddModal, setShowAddModal] = useState(false)
 
   // Form states
-  const [title, setTitle] = useState('')
-  const [type, setType] = useState('شقة')
+  const [name, setName] = useState('')
+  const [propertyType, setPropertyType] = useState('شقة')
   const [price, setPrice] = useState('')
-  const [area, setArea] = useState('')
+  const [sizeSqm, setSizeSqm] = useState('')
   const [status, setStatus] = useState('متاح')
-  const [description, setDescription] = useState('')
+  const [location, setLocation] = useState('')
 
   const fetchProperties = async () => {
     setIsLoading(true)
     try {
-      const res = await fetch('http://localhost:3001/api/properties')
-      if (!res.ok) throw new Error('Failed to fetch')
-      const data = await res.json()
-      setProperties(data || [])
+      const data = await api.properties.list.query({
+        org_id: DEFAULT_ORG_ID,
+        limit: 100,
+        offset: 0,
+      })
+      setProperties((data as any)?.items ?? data ?? [])
     } catch (err) {
       console.error(err)
     } finally {
@@ -43,30 +47,26 @@ export default function Properties() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !price || !area) return
+    if (!name.trim() || !price || !sizeSqm) return
 
     try {
-      const res = await fetch('http://localhost:3001/api/properties', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          type,
-          price: parseFloat(price),
-          area: parseFloat(area),
-          status,
-          description,
-        }),
+      await api.properties.create.mutate({
+        org_id: DEFAULT_ORG_ID,
+        name,
+        property_type: propertyType,
+        price: parseFloat(price),
+        size_sqm: parseFloat(sizeSqm),
+        status,
+        location: location || undefined,
       })
-      if (!res.ok) throw new Error('Create failed')
 
       // Reset form
-      setTitle('')
-      setType('شقة')
+      setName('')
+      setPropertyType('شقة')
       setPrice('')
-      setArea('')
+      setSizeSqm('')
       setStatus('متاح')
-      setDescription('')
+      setLocation('')
       setShowAddModal(false)
       fetchProperties() // Refresh list
     } catch (err) {
@@ -132,28 +132,28 @@ export default function Properties() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded">
-                      {p.type}
+                      {p.property_type || '—'}
                     </span>
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                       p.status === 'متاح' || p.status === 'available'
                         ? 'bg-green-100 text-green-800'
                         : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {p.status}
+                      {p.status || '—'}
                     </span>
                   </div>
-                  <h3 className="font-bold text-gray-900 text-base">{p.title}</h3>
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{p.description || 'لا يوجد وصف للعقار.'}</p>
+                  <h3 className="font-bold text-gray-900 text-base">{p.name}</h3>
+                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{p.location || 'لا يوجد موقع محدد.'}</p>
                 </div>
 
                 <div className="border-t border-gray-100 pt-4 flex items-center justify-between text-sm">
                   <div>
                     <span className="text-xs text-gray-400 block">السعر المطلوب</span>
-                    <span className="font-bold text-gray-900">{p.price.toLocaleString()} ر.ق</span>
+                    <span className="font-bold text-gray-900">{p.price ? Number(p.price).toLocaleString() : '—'} ر.ق</span>
                   </div>
                   <div className="text-left">
                     <span className="text-xs text-gray-400 block">المساحة</span>
-                    <span className="font-semibold text-gray-800">{p.area} م²</span>
+                    <span className="font-semibold text-gray-800">{p.size_sqm ?? '—'} م²</span>
                   </div>
                 </div>
               </div>
@@ -176,8 +176,8 @@ export default function Properties() {
                 <input
                   type="text"
                   required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="شقة فاخرة في اللؤلؤة"
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
                 />
@@ -186,8 +186,8 @@ export default function Properties() {
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1">نوع العقار</label>
                   <select
-                    value={type}
-                    onChange={(e) => setType(e.target.value)}
+                    value={propertyType}
+                    onChange={(e) => setPropertyType(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20"
                   >
                     <option value="شقة">شقة</option>
@@ -227,19 +227,19 @@ export default function Properties() {
                   <input
                     type="number"
                     required
-                    value={area}
-                    onChange={(e) => setArea(e.target.value)}
+                    value={sizeSqm}
+                    onChange={(e) => setSizeSqm(e.target.value)}
                     placeholder="150"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">الوصف</label>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">الموقع</label>
                 <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="اكتب وصفاً تفصيلياً للعقار، المميزات، الإطلالة، والقرب من الخدمات..."
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="حي اللؤلؤة، الدوحة..."
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20"
                 />
