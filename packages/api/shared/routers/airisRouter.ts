@@ -1,26 +1,24 @@
 /**
  * Airis Enhanced Router — نواة الذكاء التوليدي المطوّرة
  * ======================================================
- * ميزات جديدة (مستوحاة من Airis-Project):
+ * ميزات:
  *   💾  ذاكرة دائمة   — حفظ المحادثات في PostgreSQL
  *   ❤️   حالة عاطفية  — تحليل المزاج وتكييف الأسلوب
  *   🧠  استخراج ذكريات — اقتناص الحقائق تلقائياً
  *   📚  حقن السياق    — إدراج الذكريات في كل محادثة
  *
+ * 🔗 سلسلة النماذج: Ollama → Claude → Gemini
  * ⚠️ وضع "private": لا يُخزَّن ولا يُرسَل للـ cloud أبداً.
  */
 
 import { z } from "zod";
 import { publicProcedure, router } from "../core/trpc";
-import Anthropic from "@anthropic-ai/sdk";
+import { invokeClaude, invokeGemini, getProviderStatus } from "../core/llm";
 import { query, queryOne } from "../db";
 
 // ─── إعدادات النماذج ───────────────────────────────────────────────────────
 const OLLAMA_URL        = process.env.OLLAMA_URL        ?? "http://ollama:11434";
 const OLLAMA_CHAT_MODEL = process.env.OLLAMA_CHAT_MODEL ?? "llama3.1:8b";
-const CLAUDE_MODEL      = "claude-opus-4-6";
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? "" });
 
 // ─── الشخصية الأساسية ────────────────────────────────────────────────────────
 const AIRIS_BASE_PROMPT = `أنت Airis — المساعد الشخصي السيادي لبوحمد.
@@ -33,6 +31,8 @@ interface OllamaMessage { role: "user" | "assistant" | "system"; content: string
 interface EmotionState  { urgency: "high" | "normal"; mood: "positive" | "frustrated" | "neutral" }
 interface DBMessage     { role: string; content: string; source?: string; created_at?: Date }
 interface DBMemory      { id: string; content: string; importance: number; times_recalled: number; created_at: Date }
+
+type LLMSource = "ollama" | "claude" | "gemini";
 
 // ─── تحليل العاطفة ───────────────────────────────────────────────────────────
 function analyzeEmotion(text: string): EmotionState {
@@ -66,26 +66,14 @@ function buildSystemPrompt(emotion: EmotionState, memories: string[]): string {
 // ─── استدعاء Ollama ───────────────────────────────────────────────────────────
 async function callOllama(messages: OllamaMessage[], model = OLLAMA_CHAT_MODEL): Promise<string> {
   const res = await fetch(`${OLLAMA_URL}/api/chat`, {
-    method: "POST",
+    method:  "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, stream: false }),
-    signal: AbortSignal.timeout(30_000),
+    body:    JSON.stringify({ model, messages, stream: false }),
+    signal:  AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`);
   const data = await res.json() as { message: { content: string } };
   return data.message?.content ?? "";
-}
-
-// ─── استدعاء Claude ───────────────────────────────────────────────────────────
-async function callClaude(
-  messages: Array<{ role: "user" | "assistant"; content: string }>,
-  system?: string
-): Promise<string> {
-  const res = await anthropic.messages.create({
-    model: CLAUDE_MODEL, max_tokens: 2048, system, messages,
-  });
-  const block = res.content[0];
-  return block.type === "text" ? block.text : "";
 }
 
 // ─── حفظ رسالة في DB ─────────────────────────────────────────────────────────
@@ -137,10 +125,7 @@ async function extractAndSaveMemory(userMsg: string, aiReply: string) {
 
     for (const fact of parsed.facts.slice(0, 3)) {
       if (fact.length < 8) continue;
-      await query(
-        `INSERT INTO airis_memories (content, importance) VALUES ($1, 7)`,
-        [fact]
-      );
+      await query(`INSERT INTO airis_memories (content, importance) VALUES ($1, 7)`, [fact]);
     }
   } catch { /* silent — الذاكرة غير حرجة */ }
 }
@@ -190,25 +175,36 @@ export const airisRouter = router({
         { role: "user", content: message },
       ];
 
-      let reply  = "";
-      let source: "ollama" | "claude" = "ollama";
+      const cloudMessages = history.concat([{ role: "user" as const, content: message }]);
 
+      let reply : string    = "";
+      let source: LLMSource = "ollama";
+
+      // 1️⃣ Ollama — النواة المحلية
       try {
         reply = await callOllama(ollamaMessages);
       } catch (ollamaErr) {
         console.warn("[Airis] Ollama failed:", ollamaErr);
+
         if (mode === "private") {
           throw new Error("النموذج المحلي غير متاح. الوضع الخاص لا يستخدم السحاب.");
         }
+
+        // 2️⃣ Claude — الاحتياطي الأول
         try {
-          reply  = await callClaude(
-            history.concat([{ role: "user", content: message }]),
-            systemPrompt
-          );
+          reply  = await invokeClaude(cloudMessages, systemPrompt);
           source = "claude";
         } catch (claudeErr) {
-          console.error("[Airis] Claude failed:", claudeErr);
-          throw new Error("جميع النماذج غير متاحة حالياً.");
+          console.warn("[Airis] Claude failed:", claudeErr);
+
+          // 3️⃣ Gemini — الاحتياطي الأخير
+          try {
+            reply  = await invokeGemini(cloudMessages, systemPrompt);
+            source = "gemini";
+          } catch (geminiErr) {
+            console.error("[Airis] Gemini failed:", geminiErr);
+            throw new Error("جميع النماذج غير متاحة حالياً (Ollama + Claude + Gemini).");
+          }
         }
       }
 
@@ -253,7 +249,7 @@ export const airisRouter = router({
 
   // ══ حذف ذكرى ════════════════════════════════════════════════════════════════
   deleteMemory: publicProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(z.object({ id: z.string() }))
     .mutation(async ({ input }) => {
       await query(`DELETE FROM airis_memories WHERE id = $1`, [input.id]);
       return { success: true };
@@ -287,22 +283,27 @@ export const airisRouter = router({
       memoryCount = parseInt(r?.c ?? "0");
     } catch {}
 
+    const providers = getProviderStatus();
+
     return {
-      airis:  "online",
-      ollama: { online: ollamaOnline, url: OLLAMA_URL, model: OLLAMA_CHAT_MODEL, models: ollamaModels },
-      claude: { available: Boolean(process.env.ANTHROPIC_API_KEY), model: CLAUDE_MODEL },
-      memory: { count: memoryCount },
-      modes:  ["formal","private"],
+      airis:          "online",
+      ollama:         { ...providers.ollama, online: ollamaOnline, models: ollamaModels },
+      claude:         providers.claude,
+      gemini:         providers.gemini,
+      fallback_chain: providers.chain,
+      memory:         { count: memoryCount },
+      modes:          ["formal","private"],
     };
   }),
 
   // ══ الأنظمة المتصلة ═════════════════════════════════════════════════════════
-  listSystems: publicProcedure.query(async () => ({
+  listSystems: publicProcedure.query(() => ({
     systems: [
-      { id: "real_estate", name: "العقارات والممتلكات", icon: "🏠", status: "active"  },
-      { id: "clearance",   name: "مكتب التخليص",        icon: "📋", status: "active"  },
-      { id: "garage",      name: "الكراج",               icon: "🚗", status: "planned" },
-      { id: "slot_4",      name: "— مستقبلية —",         icon: "➕", status: "empty"   },
+      { id: "real_estate", name: "العقارات والممتلكات", icon: "🏠", status: "active"  as const },
+      { id: "clearance",   name: "مكتب التخليص",        icon: "📋", status: "active"  as const },
+      { id: "garage",      name: "الكراج",               icon: "🚗", status: "planned" as const },
+      { id: "slot_4",      name: "نظام إضافي ٤",         icon: "➕", status: "empty"   as const },
+      { id: "slot_5",      name: "نظام إضافي ٥",         icon: "➕", status: "empty"   as const },
     ],
     max_systems: 20,
   })),

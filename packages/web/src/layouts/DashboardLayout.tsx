@@ -39,7 +39,7 @@ export default function DashboardLayout() {
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center gap-3 px-4 py-3 text-sm text-gray-500">
             <span className="w-2 h-2 bg-green-500 rounded-full" />
-            النظام活跃
+            النظام نشط
           </div>
         </div>
       </aside>
